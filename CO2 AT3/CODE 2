@@ -1,0 +1,274 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+
+emails = [
+    "Win a free iPhone now click here",
+    "Congratulations you won a lottery",
+    "Claim your free prize now",
+    "You have won a cash reward",
+    "Get free money by clicking this link",
+    "Limited offer buy now and get free gift",
+    "You are selected for a free vacation",
+    "Urgent claim your reward today",
+    "Free coupon available click now",
+    "Congratulations you are a winner",
+    "Meeting is scheduled for tomorrow",
+    "Please send me the project report",
+    "Can we meet tomorrow at 10 AM",
+    "Your assignment submission is due tomorrow",
+    "Please review the attached document",
+    "The meeting has been moved to Monday",
+    "Can you send the monthly report",
+    "Let's discuss the project after lunch",
+    "Please call me when you are available",
+    "The project presentation is ready",
+    "Free prize available now",
+    "Win cash reward today",
+    "Click here to claim your free gift",
+    "Congratulations you won free money",
+    "Get your reward immediately",
+    "Important meeting at 2 PM",
+    "Please attend the project meeting",
+    "Your report has been approved",
+    "Let's complete the assignment today",
+    "Please send the presentation"
+]
+
+labels = [
+    "spam", "spam", "spam", "spam", "spam",
+    "spam", "spam", "spam", "spam", "spam",
+    "ham", "ham", "ham", "ham", "ham",
+    "ham", "ham", "ham", "ham", "ham",
+    "spam", "spam", "spam", "spam", "spam",
+    "ham", "ham", "ham", "ham", "ham"
+]
+
+df = pd.DataFrame({
+    "email": emails,
+    "label": labels
+})
+
+print("Dataset:")
+print(df)
+
+print("\nClass Distribution:")
+print(df["label"].value_counts())
+
+X_train, X_test, y_train, y_test = train_test_split(
+    df["email"],
+    df["label"],
+    test_size=0.30,
+    random_state=42,
+    stratify=df["label"]
+)
+
+vectorizer = TfidfVectorizer(
+    lowercase=True,
+    stop_words="english",
+    ngram_range=(1, 2)
+)
+
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
+
+model = LogisticRegression(
+    class_weight=None,
+    max_iter=1000
+)
+
+model.fit(X_train_tfidf, y_train)
+
+probabilities = model.predict_proba(X_test_tfidf)[:, 1]
+
+predictions = np.where(
+    probabilities >= 0.50,
+    "spam",
+    "ham"
+)
+
+print("\nOriginal Model Performance")
+print(classification_report(y_test, predictions))
+
+cm = confusion_matrix(y_test, predictions, labels=["ham", "spam"])
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=["Ham", "Spam"]
+)
+
+disp.plot()
+plt.title("Original Confusion Matrix")
+plt.show()
+
+print("\nMisclassified Emails:")
+
+for email, actual, predicted, probability in zip(
+    X_test, y_test, predictions, probabilities
+):
+    if actual != predicted:
+        print("\nEmail:", email)
+        print("Actual:", actual)
+        print("Predicted:", predicted)
+        print("Spam Probability:", round(probability, 3))
+
+print("\nDecision Boundary Information")
+
+print("Default decision threshold = 0.50")
+print("If spam probability >= 0.50 -> Spam")
+print("If spam probability < 0.50 -> Ham")
+
+threshold = 0.30
+
+predictions_threshold = np.where(
+    probabilities >= threshold,
+    "spam",
+    "ham"
+)
+
+print("\nPerformance After Threshold Adjustment")
+print("Threshold:", threshold)
+
+print(
+    classification_report(
+        y_test,
+        predictions_threshold
+    )
+)
+
+cm2 = confusion_matrix(
+    y_test,
+    predictions_threshold,
+    labels=["ham", "spam"]
+)
+
+disp2 = ConfusionMatrixDisplay(
+    confusion_matrix=cm2,
+    display_labels=["Ham", "Spam"]
+)
+
+disp2.plot()
+plt.title("Confusion Matrix After Threshold Adjustment")
+plt.show()
+
+balanced_model = LogisticRegression(
+    class_weight="balanced",
+    max_iter=1000
+)
+
+balanced_model.fit(
+    X_train_tfidf,
+    y_train
+)
+
+balanced_probabilities = balanced_model.predict_proba(
+    X_test_tfidf
+)[:, 1]
+
+balanced_predictions = np.where(
+    balanced_probabilities >= 0.30,
+    "spam",
+    "ham"
+)
+
+print("\nImproved Model Performance")
+print(
+    classification_report(
+        y_test,
+        balanced_predictions
+    )
+)
+
+cm3 = confusion_matrix(
+    y_test,
+    balanced_predictions,
+    labels=["ham", "spam"]
+)
+
+disp3 = ConfusionMatrixDisplay(
+    confusion_matrix=cm3,
+    display_labels=["Ham", "Spam"]
+)
+
+disp3.plot()
+plt.title("Improved Model Confusion Matrix")
+plt.show()
+
+original_recall = recall_score(
+    y_test,
+    predictions,
+    pos_label="spam"
+)
+
+improved_recall = recall_score(
+    y_test,
+    balanced_predictions,
+    pos_label="spam"
+)
+
+original_f1 = f1_score(
+    y_test,
+    predictions,
+    pos_label="spam"
+)
+
+improved_f1 = f1_score(
+    y_test,
+    balanced_predictions,
+    pos_label="spam"
+)
+
+print("\nModel Comparison")
+
+comparison = pd.DataFrame({
+    "Metric": [
+        "Spam Recall",
+        "Spam F1 Score"
+    ],
+    "Original Model": [
+        original_recall,
+        original_f1
+    ],
+    "Improved Model": [
+        improved_recall,
+        improved_f1
+    ]
+})
+
+print(comparison)
+
+new_emails = [
+    "Congratulations! You have won a free cash prize",
+    "Please attend the meeting tomorrow morning",
+    "Click here to claim your free reward",
+    "Please send the project report today"
+]
+
+new_email_tfidf = vectorizer.transform(new_emails)
+
+new_probabilities = balanced_model.predict_proba(
+    new_email_tfidf
+)[:, 1]
+
+new_predictions = np.where(
+    new_probabilities >= 0.30,
+    "spam",
+    "ham"
+)
+
+print("\nNew Email Predictions")
+
+for email, prediction, probability in zip(
+    new_emails,
+    new_predictions,
+    new_probabilities
+):
+    print("\nEmail:", email)
+    print("Prediction:", prediction)
+    print("Spam Probability:", round(probability, 3))

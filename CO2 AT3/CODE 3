@@ -1,0 +1,208 @@
+import numpy as np
+import pandas as pd
+
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+data = {
+    "Outlook": [
+        "Sunny", "Sunny", "Overcast", "Rainy", "Rainy",
+        "Rainy", "Overcast", "Sunny", "Sunny", "Rainy",
+        "Sunny", "Overcast", "Overcast", "Rainy"
+    ],
+    "Temperature": [
+        "Hot", "Hot", "Hot", "Mild", "Cool",
+        "Cool", "Cool", "Mild", "Cool", "Mild",
+        "Mild", "Mild", "Hot", "Mild"
+    ],
+    "Humidity": [
+        "High", "High", "High", "High", "Normal",
+        "Normal", "Normal", "High", "Normal", "Normal",
+        "Normal", "High", "Normal", "High"
+    ],
+    "Play": [
+        "No", "No", "Yes", "Yes", "Yes",
+        "No", "Yes", "No", "Yes", "Yes",
+        "Yes", "Yes", "Yes", "No"
+    ]
+}
+
+df = pd.DataFrame(data)
+
+print("Original Dataset")
+print(df)
+
+print("\nMissing Values")
+print(df.isnull().sum())
+
+print("\nClass Distribution")
+print(df["Play"].value_counts())
+
+X = df.drop("Play", axis=1)
+y = df["Play"]
+
+X_encoded = pd.get_dummies(X)
+
+print("\nEncoded Features")
+print(X_encoded)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_encoded,
+    y,
+    test_size=0.30,
+    random_state=42,
+    stratify=y
+)
+
+model_without_smoothing = MultinomialNB(alpha=0)
+
+model_without_smoothing.fit(X_train, y_train)
+
+pred_without_smoothing = model_without_smoothing.predict(X_test)
+
+accuracy_without = accuracy_score(
+    y_test,
+    pred_without_smoothing
+)
+
+print("\nNaive Bayes Without Laplace Smoothing")
+print("Accuracy:", accuracy_without)
+
+print("\nClassification Report")
+print(
+    classification_report(
+        y_test,
+        pred_without_smoothing,
+        zero_division=0
+    )
+)
+
+print("\nConfusion Matrix")
+print(
+    confusion_matrix(
+        y_test,
+        pred_without_smoothing
+    )
+)
+
+print("\nChecking Probability Values")
+
+probabilities_without = model_without_smoothing.feature_log_prob_
+
+print("Log Probability Values:")
+print(probabilities_without)
+
+print("\nProbability Values:")
+print(np.exp(probabilities_without))
+
+zero_probability_count = np.sum(
+    np.isclose(
+        np.exp(probabilities_without),
+        0
+    )
+)
+
+print("\nNumber of Zero Probability Values:",
+      zero_probability_count)
+
+model_with_smoothing = MultinomialNB(alpha=1)
+
+model_with_smoothing.fit(X_train, y_train)
+
+pred_with_smoothing = model_with_smoothing.predict(X_test)
+
+accuracy_with = accuracy_score(
+    y_test,
+    pred_with_smoothing
+)
+
+print("\nNaive Bayes With Laplace Smoothing")
+print("Accuracy:", accuracy_with)
+
+print("\nClassification Report")
+print(
+    classification_report(
+        y_test,
+        pred_with_smoothing,
+        zero_division=0
+    )
+)
+
+print("\nConfusion Matrix")
+print(
+    confusion_matrix(
+        y_test,
+        pred_with_smoothing
+    )
+)
+
+print("\nProbability Values After Laplace Smoothing")
+
+probabilities_with = np.exp(
+    model_with_smoothing.feature_log_prob_
+)
+
+print(probabilities_with)
+
+zero_probability_count_after = np.sum(
+    np.isclose(
+        probabilities_with,
+        0
+    )
+)
+
+print("\nNumber of Zero Probability Values After Smoothing:",
+      zero_probability_count_after)
+
+comparison = pd.DataFrame({
+    "Method": [
+        "Without Laplace Smoothing",
+        "With Laplace Smoothing"
+    ],
+    "Accuracy": [
+        accuracy_without,
+        accuracy_with
+    ]
+})
+
+print("\nModel Comparison")
+print(comparison)
+
+new_data = pd.DataFrame({
+    "Outlook": ["Sunny", "Rainy", "Overcast"],
+    "Temperature": ["Cool", "Mild", "Hot"],
+    "Humidity": ["Normal", "High", "Normal"]
+})
+
+new_data_encoded = pd.get_dummies(new_data)
+
+new_data_encoded = new_data_encoded.reindex(
+    columns=X_encoded.columns,
+    fill_value=0
+)
+
+new_predictions = model_with_smoothing.predict(
+    new_data_encoded
+)
+
+new_probabilities = model_with_smoothing.predict_proba(
+    new_data_encoded
+)
+
+print("\nNew Data Predictions")
+
+for i in range(len(new_data)):
+    print("\nInput:", new_data.iloc[i].to_dict())
+    print("Prediction:", new_predictions[i])
+    print("Class Probabilities:", new_probabilities[i])
+
+print("\nFinal Result")
+
+if accuracy_with >= accuracy_without:
+    print("Laplace smoothing improved or maintained the model performance.")
+else:
+    print("Laplace smoothing did not improve accuracy on this small dataset.")
+    
+print("\nLaplace smoothing prevents zero probabilities and makes")
+print("Naive Bayes more reliable when an unseen feature value occurs.")
